@@ -62,46 +62,11 @@ class KeyboardFrame(ttk.Frame):
         self.label13.place(relx=0.75, rely=.5, anchor='center')
 
     def bindings(self):
-        for key in ['a', 'A']:
+        keylist = ['a', 'A', 's', 'S', 'd', 'D','f', 'F','g', 'G', 'h', 'H','j', 'J','k', 'K','w', 'W','e', 'E','t', 'T','y', 'Y', 'u', 'U']
+        for key in keylist: 
             self.master.bind(f'<KeyPress-{key}>', self.handle_key_press)
             self.master.bind(f'<KeyRelease-{key}>', self.handle_key_release)
-        for key in ['s', 'S']:
-            self.master.bind(f'<KeyPress-{key}>', self.handle_key_press)
-            self.master.bind(f'<KeyRelease-{key}>', self.handle_key_release)
-        for key in ['d', 'D']:
-            self.master.bind(f'<KeyPress-{key}>', self.handle_key_press)
-            self.master.bind(f'<KeyRelease-{key}>', self.handle_key_release)
-        for key in ['f', 'F']:
-            self.master.bind(f'<KeyPress-{key}>', self.handle_key_press)
-            self.master.bind(f'<KeyRelease-{key}>', self.handle_key_release)
-        for key in ['g', 'G']:
-            self.master.bind(f'<KeyPress-{key}>', self.handle_key_press)
-            self.master.bind(f'<KeyRelease-{key}>', self.handle_key_release)
-        for key in ['h', 'H']:
-            self.master.bind(f'<KeyPress-{key}>', self.handle_key_press)
-            self.master.bind(f'<KeyRelease-{key}>', self.handle_key_release)
-        for key in ['j', 'J']:
-            self.master.bind(f'<KeyPress-{key}>', self.handle_key_press)
-            self.master.bind(f'<KeyRelease-{key}>', self.handle_key_release)
-        for key in ['k', 'K']:
-            self.master.bind(f'<KeyPress-{key}>', self.handle_key_press)
-            self.master.bind(f'<KeyRelease-{key}>', self.handle_key_release)
-        for key in ['w', 'W']:
-            self.master.bind(f'<KeyPress-{key}>', self.handle_key_press)
-            self.master.bind(f'<KeyRelease-{key}>', self.handle_key_release)
-        for key in ['e', 'E']:
-            self.master.bind(f'<KeyPress-{key}>', self.handle_key_press)
-            self.master.bind(f'<KeyRelease-{key}>', self.handle_key_release)
-        for key in ['t', 'T']:
-            self.master.bind(f'<KeyPress-{key}>', self.handle_key_press)
-            self.master.bind(f'<KeyRelease-{key}>', self.handle_key_release)
-        for key in ['y', 'Y']:
-            self.master.bind(f'<KeyPress-{key}>', self.handle_key_press)
-            self.master.bind(f'<KeyRelease-{key}>', self.handle_key_release)
-        for key in ['u', 'U']:
-            self.master.bind(f'<KeyPress-{key}>', self.handle_key_press)
-            self.master.bind(f'<KeyRelease-{key}>', self.handle_key_release)
-
+        
     def handle_key_press(self, event):
         key = event.char.lower()
         if key in self.key_map:
