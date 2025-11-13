@@ -29,6 +29,22 @@ class KeyboardFrame(ttk.Frame):
         self.label13 = ttk.Label(self, text='U', font='fixedsys 24 bold', background='white', foreground='black')
 
         self.original_bg = self.label1.cget('background')
+
+        self.key_map = {
+            'a': (self.label1, self.original_bg),
+            's': (self.label2, self.original_bg),
+            'd': (self.label3, self.original_bg),
+            'f': (self.label4, self.original_bg),
+            'g': (self.label5, self.original_bg),
+            'h': (self.label6, self.original_bg),
+            'j': (self.label7, self.original_bg),
+            'k': (self.label8, self.original_bg),
+            'w': (self.label9, 'white'),
+            'e': (self.label10, 'white'),
+            't': (self.label11, 'white'),
+            'y': (self.label12, 'white'),
+            'u': (self.label13, 'white')
+        }
     def placement(self):
         self.keyboard.place(relx=0, rely=0, relwidth=1, relheight=1)
         self.label1.place(relx=0.0625, rely=.75, anchor='center')
@@ -47,122 +63,56 @@ class KeyboardFrame(ttk.Frame):
 
     def bindings(self):
         for key in ['a', 'A']:
-            self.master.bind(f'<KeyPress-{key}>', self.key_press_a)
-            self.master.bind(f'<KeyRelease-{key}>', self.key_release_a)
+            self.master.bind(f'<KeyPress-{key}>', self.handle_key_press)
+            self.master.bind(f'<KeyRelease-{key}>', self.handle_key_release)
         for key in ['s', 'S']:
-            self.master.bind(f'<KeyPress-{key}>', self.key_press_s)
-            self.master.bind(f'<KeyRelease-{key}>', self.key_release_s)
+            self.master.bind(f'<KeyPress-{key}>', self.handle_key_press)
+            self.master.bind(f'<KeyRelease-{key}>', self.handle_key_release)
         for key in ['d', 'D']:
-            self.master.bind(f'<KeyPress-{key}>', self.key_press_d)
-            self.master.bind(f'<KeyRelease-{key}>', self.key_release_d)
+            self.master.bind(f'<KeyPress-{key}>', self.handle_key_press)
+            self.master.bind(f'<KeyRelease-{key}>', self.handle_key_release)
         for key in ['f', 'F']:
-            self.master.bind(f'<KeyPress-{key}>', self.key_press_f)
-            self.master.bind(f'<KeyRelease-{key}>', self.key_release_f)
+            self.master.bind(f'<KeyPress-{key}>', self.handle_key_press)
+            self.master.bind(f'<KeyRelease-{key}>', self.handle_key_release)
         for key in ['g', 'G']:
-            self.master.bind(f'<KeyPress-{key}>', self.key_press_g)
-            self.master.bind(f'<KeyRelease-{key}>', self.key_release_g)
+            self.master.bind(f'<KeyPress-{key}>', self.handle_key_press)
+            self.master.bind(f'<KeyRelease-{key}>', self.handle_key_release)
         for key in ['h', 'H']:
-            self.master.bind(f'<KeyPress-{key}>', self.key_press_h)
-            self.master.bind(f'<KeyRelease-{key}>', self.key_release_h)
+            self.master.bind(f'<KeyPress-{key}>', self.handle_key_press)
+            self.master.bind(f'<KeyRelease-{key}>', self.handle_key_release)
         for key in ['j', 'J']:
-            self.master.bind(f'<KeyPress-{key}>', self.key_press_j)
-            self.master.bind(f'<KeyRelease-{key}>', self.key_release_j)
+            self.master.bind(f'<KeyPress-{key}>', self.handle_key_press)
+            self.master.bind(f'<KeyRelease-{key}>', self.handle_key_release)
         for key in ['k', 'K']:
-            self.master.bind(f'<KeyPress-{key}>', self.key_press_k)
-            self.master.bind(f'<KeyRelease-{key}>', self.key_release_k)
+            self.master.bind(f'<KeyPress-{key}>', self.handle_key_press)
+            self.master.bind(f'<KeyRelease-{key}>', self.handle_key_release)
         for key in ['w', 'W']:
-            self.master.bind(f'<KeyPress-{key}>', self.key_press_w)
-            self.master.bind(f'<KeyRelease-{key}>', self.key_release_w)
+            self.master.bind(f'<KeyPress-{key}>', self.handle_key_press)
+            self.master.bind(f'<KeyRelease-{key}>', self.handle_key_release)
         for key in ['e', 'E']:
-            self.master.bind(f'<KeyPress-{key}>', self.key_press_e)
-            self.master.bind(f'<KeyRelease-{key}>', self.key_release_e)
+            self.master.bind(f'<KeyPress-{key}>', self.handle_key_press)
+            self.master.bind(f'<KeyRelease-{key}>', self.handle_key_release)
         for key in ['t', 'T']:
-            self.master.bind(f'<KeyPress-{key}>', self.key_press_t)
-            self.master.bind(f'<KeyRelease-{key}>', self.key_release_t)
+            self.master.bind(f'<KeyPress-{key}>', self.handle_key_press)
+            self.master.bind(f'<KeyRelease-{key}>', self.handle_key_release)
         for key in ['y', 'Y']:
-            self.master.bind(f'<KeyPress-{key}>', self.key_press_y)
-            self.master.bind(f'<KeyRelease-{key}>', self.key_release_y)
+            self.master.bind(f'<KeyPress-{key}>', self.handle_key_press)
+            self.master.bind(f'<KeyRelease-{key}>', self.handle_key_release)
         for key in ['u', 'U']:
-            self.master.bind(f'<KeyPress-{key}>', self.key_press_u)
-            self.master.bind(f'<KeyRelease-{key}>', self.key_release_u)
+            self.master.bind(f'<KeyPress-{key}>', self.handle_key_press)
+            self.master.bind(f'<KeyRelease-{key}>', self.handle_key_release)
 
-    def key_press_a(self, event):
-        self.label1.config(background='blue')
+    def handle_key_press(self, event):
+        key = event.char.lower()
+        if key in self.key_map:
+            label, original_bg = self.key_map[key]
+            label.config(background='blue')
 
-    def key_release_a(self, event):
-        self.label1.config(background=self.original_bg)
-
-    def key_press_s(self, event):
-        self.label2.config(background='blue')
-
-    def key_release_s(self, event):
-        self.label2.config(background=self.original_bg)
-
-    def key_press_d(self, event):
-        self.label3.config(background='blue')
-
-    def key_release_d(self, event):
-        self.label3.config(background=self.original_bg)
-
-    def key_press_f(self, event):
-        self.label4.config(background='blue')
-
-    def key_release_f(self, event):
-        self.label4.config(background=self.original_bg)
-
-    def key_press_g(self, event):
-        self.label5.config(background='blue')
-
-    def key_release_g(self, event):
-        self.label5.config(background=self.original_bg)
-
-    def key_press_h(self, event):
-        self.label6.config(background='blue')
-
-    def key_release_h(self, event):
-        self.label6.config(background=self.original_bg)
-
-    def key_press_j(self, event):
-        self.label7.config(background='blue')
-
-    def key_release_j(self, event):
-        self.label7.config(background=self.original_bg)
-
-    def key_press_k(self, event):
-        self.label8.config(background='blue')
-
-    def key_release_k(self, event):
-        self.label8.config(background=self.original_bg)
-
-    def key_press_w(self, event):
-        self.label9.config(background='blue')
-
-    def key_release_w(self, event):
-        self.label9.config(background='white')
-
-    def key_press_e(self, event):
-        self.label10.config(background='blue')
-
-    def key_release_e(self, event):
-        self.label10.config(background='white')
-
-    def key_press_t(self, event):
-        self.label11.config(background='blue')
-
-    def key_release_t(self, event):
-        self.label11.config(background='white')
-
-    def key_press_y(self, event):
-        self.label12.config(background='blue')
-
-    def key_release_y(self, event):
-        self.label12.config(background='white')
-
-    def key_press_u(self, event):
-        self.label13.config(background='blue')
-
-    def key_release_u(self, event):
-        self.label13.config(background='white')
+    def handle_key_release(self, event):
+        key = event.char.lower()
+        if key in self.key_map:
+            label, original_bg = self.key_map[key]
+            label.config(background=original_bg)
 
 class MainWin(ttk.Window):
     def __init__(self):
