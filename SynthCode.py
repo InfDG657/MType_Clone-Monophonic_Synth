@@ -8,6 +8,8 @@ class KeyboardFrame(ttk.Frame):
 
         image_original = Image.open(r'Assets/piano.jpg').resize((1000,500))
         self.keyboard_img = ImageTk.PhotoImage(image_original)
+        self.notes_played = []
+        
         self.widgets()
         self.placement()
         self.bindings()
@@ -31,19 +33,19 @@ class KeyboardFrame(ttk.Frame):
         self.original_bg = self.label1.cget('background')
 
         self.key_map = {
-            'a': (self.label1, self.original_bg),
-            's': (self.label2, self.original_bg),
-            'd': (self.label3, self.original_bg),
-            'f': (self.label4, self.original_bg),
-            'g': (self.label5, self.original_bg),
-            'h': (self.label6, self.original_bg),
-            'j': (self.label7, self.original_bg),
-            'k': (self.label8, self.original_bg),
-            'w': (self.label9, 'white'),
-            'e': (self.label10, 'white'),
-            't': (self.label11, 'white'),
-            'y': (self.label12, 'white'),
-            'u': (self.label13, 'white')
+            'a': (self.label1, self.original_bg, 261.63),
+            's': (self.label2, self.original_bg, 293.66),
+            'd': (self.label3, self.original_bg, 329.63),
+            'f': (self.label4, self.original_bg, 349.23),
+            'g': (self.label5, self.original_bg, 392.00),
+            'h': (self.label6, self.original_bg, 440.00),
+            'j': (self.label7, self.original_bg, 493.88),
+            'k': (self.label8, self.original_bg, 523.25),
+            'w': (self.label9, 'white', 277.18),
+            'e': (self.label10, 'white', 311.13),
+            't': (self.label11, 'white', 369.99),
+            'y': (self.label12, 'white', 415.30),
+            'u': (self.label13, 'white', 466.16)
         }
     def placement(self):
         self.keyboard.place(relx=0, rely=0, relwidth=1, relheight=1)
@@ -70,14 +72,17 @@ class KeyboardFrame(ttk.Frame):
     def handle_key_press(self, event):
         key = event.char.lower()
         if key in self.key_map:
-            label, original_bg = self.key_map[key]
+            label, original_bg, frequency = self.key_map[key]
             label.config(background='blue')
+            if frequency not in self.notes_played:
+                self.notes_played.append(frequency)
 
     def handle_key_release(self, event):
         key = event.char.lower()
         if key in self.key_map:
-            label, original_bg = self.key_map[key]
+            label, original_bg, frequency = self.key_map[key]
             label.config(background=original_bg)
+            self.notes_played = [i for i in self.notes_played if i != frequency]
 
 class MainWin(ttk.Window):
     def __init__(self):
@@ -88,9 +93,12 @@ class MainWin(ttk.Window):
         self.placement()
         self.mainloop()
 
+        
+
     def frames(self):
         self.keyboard = KeyboardFrame(self)
-    
+        self.notesdisplay = NotesDisplay(self.keyboard)
+
     def placement(self):
         self.keyboard.pack()
 
