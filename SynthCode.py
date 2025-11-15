@@ -93,11 +93,8 @@ class MainWin(ttk.Window):
         self.placement()
         self.mainloop()
 
-        
-
     def frames(self):
         self.keyboard = KeyboardFrame(self)
-        self.notesdisplay = NotesDisplay(self.keyboard)
 
     def placement(self):
         self.keyboard.pack()
