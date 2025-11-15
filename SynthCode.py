@@ -80,6 +80,9 @@ class SynthFrame(ttk.Frame):
         self.amplitude = 0.3
         self.stream = None
         self.is_running = True
+        # Phase accumulator dictionary: stores current phase (0 to 2π) for each frequency being played
+        # This prevents phase discontinuities between audio blocks and eliminates clicking/buzzing
+        self.phase_accumulators = {}
         self.frames()
         self.placement()
         self.start_audio_stream()
@@ -98,35 +101,50 @@ class SynthFrame(ttk.Frame):
         self.osc2.grid(row=0, column=1, sticky='nesw', padx=5, pady=5)
         self.osc3.grid(row=0, column=2, sticky='nesw', padx=5, pady=5)
 
-    def generate_sine(self, frequency, duration):
-        # Create time array from 0 to duration with sample_rate number of points per second
-        t = np.linspace(0, duration, int(self.sample_rate * duration), False)
-        # Generate sine wave using standard formula: sin(2π * frequency * time)
-        wave = np.sin(2 * np.pi * frequency * t)
-        return wave
+    def generate_sine(self, frequency, num_samples, start_phase):
+        # Phase-based sine wave generation for continuous synthesis without clicking
+        # Calculate how much phase advances per sample: 2π * frequency / sample_rate
+        phase_increment = 2 * np.pi * frequency / self.sample_rate
+        # Create array of phase values starting from start_phase and incrementing by phase_increment
+        phases = start_phase + np.arange(num_samples) * phase_increment
+        # Generate sine wave from phase values
+        wave = np.sin(phases)
+        # Return wave and final phase (wrapped to 0-2π range to prevent overflow)
+        return wave, phases[-1] % (2 * np.pi)
 
-    def generate_square(self, frequency, duration):
-        # Create time array from 0 to duration with sample_rate number of points per second
-        t = np.linspace(0, duration, int(self.sample_rate * duration), False)
-        # Generate square wave by taking sign of sine wave (converts smooth wave to +1/-1 values)
-        wave = np.sign(np.sin(2 * np.pi * frequency * t))
-        return wave
+    def generate_square(self, frequency, num_samples, start_phase):
+        # Phase-based square wave generation for continuous synthesis without clicking
+        # Calculate how much phase advances per sample: 2π * frequency / sample_rate
+        phase_increment = 2 * np.pi * frequency / self.sample_rate
+        # Create array of phase values starting from start_phase and incrementing by phase_increment
+        phases = start_phase + np.arange(num_samples) * phase_increment
+        # Generate square wave by taking sign of sine (converts smooth wave to +1/-1 values)
+        wave = np.sign(np.sin(phases))
+        # Return wave and final phase (wrapped to 0-2π range to prevent overflow)
+        return wave, phases[-1] % (2 * np.pi)
 
-    def generate_sawtooth(self, frequency, duration):
-        # Create time array from 0 to duration with sample_rate number of points per second
-        t = np.linspace(0, duration, int(self.sample_rate * duration), False)
-        # Generate sawtooth wave that ramps from -1 to 1 linearly then repeats
-        # Formula creates a linear ramp by calculating fractional part of time * frequency
-        wave = 2 * (t * frequency - np.floor(t * frequency + 0.5))
-        return wave
+    def generate_sawtooth(self, frequency, num_samples, start_phase):
+        # Phase-based sawtooth wave generation for continuous synthesis without clicking
+        # Calculate how much phase advances per sample: 2π * frequency / sample_rate
+        phase_increment = 2 * np.pi * frequency / self.sample_rate
+        # Create array of phase values starting from start_phase and incrementing by phase_increment
+        phases = start_phase + np.arange(num_samples) * phase_increment
+        # Convert phase (0 to 2π) to sawtooth (-1 to 1) by normalizing and shifting
+        wave = 2 * (phases / (2 * np.pi) % 1.0) - 1
+        # Return wave and final phase (wrapped to 0-2π range to prevent overflow)
+        return wave, phases[-1] % (2 * np.pi)
 
-    def generate_triangle(self, frequency, duration):
-        # Create time array from 0 to duration with sample_rate number of points per second
-        t = np.linspace(0, duration, int(self.sample_rate * duration), False)
-        # Generate triangle wave by taking absolute value of sawtooth and scaling/shifting
-        # Creates a wave that goes up then down linearly (like /\ shape repeating)
-        wave = 2 * np.abs(2 * (t * frequency - np.floor(t * frequency + 0.5))) - 1
-        return wave
+    def generate_triangle(self, frequency, num_samples, start_phase):
+        # Phase-based triangle wave generation for continuous synthesis without clicking
+        # Calculate how much phase advances per sample: 2π * frequency / sample_rate
+        phase_increment = 2 * np.pi * frequency / self.sample_rate
+        # Create array of phase values starting from start_phase and incrementing by phase_increment
+        phases = start_phase + np.arange(num_samples) * phase_increment
+        # Convert phase to sawtooth, take absolute value and scale to create triangle shape
+        sawtooth = 2 * (phases / (2 * np.pi) % 1.0) - 1
+        wave = 2 * np.abs(sawtooth) - 1
+        # Return wave and final phase (wrapped to 0-2π range to prevent overflow)
+        return wave, phases[-1] % (2 * np.pi)
 
     def start_audio_stream(self):
         # Create audio output stream with sounddevice
@@ -141,22 +159,27 @@ class SynthFrame(ttk.Frame):
 
     def continuous_synthesis(self):
         # Stop synthesis if is_running flag is False
-        
+
         blocksize = 1500
-        
+
         if not self.is_running:
             return
 
         # Get list of currently pressed note frequencies from keyboard
         music = self.controller.notes_played
 
+        # Clean up phase accumulators for notes that are no longer being played
+        # This prevents the dictionary from growing indefinitely with old frequencies
+        active_frequencies = set(music)
+        keys_to_remove = [freq for freq in self.phase_accumulators if freq not in active_frequencies]
+        for freq in keys_to_remove:
+            del self.phase_accumulators[freq]
+
         # If no notes are being played, send silence to audio stream
         if len(music) == 0:
             silence = np.zeros(blocksize, dtype='float32')
             self.stream.write(silence)
         else:
-            # Calculate duration for one audio block based on blocksize and sample rate
-            duration = blocksize / self.sample_rate
             oscillators = [self.osc1, self.osc2, self.osc3]
             # Filter to only oscillators that have a waveform selected (wave_type != 0)
             active_oscillators = [osc for osc in oscillators if osc.wave_type.get() != 0]
@@ -167,28 +190,41 @@ class SynthFrame(ttk.Frame):
                 self.stream.write(silence)
             else:
                 # Initialize empty array to hold all combined audio
-                combined_wave = np.zeros(int(self.sample_rate * duration))
+                combined_wave = np.zeros(blocksize)
 
                 # Loop through each note frequency being played
                 for frequency in music:
-                    note_wave = np.zeros(int(self.sample_rate * duration))
+                    # Initialize phase accumulator for new frequencies (starts at 0)
+                    if frequency not in self.phase_accumulators:
+                        self.phase_accumulators[frequency] = 0.0
+
+                    # Get the current phase for this frequency to maintain continuity
+                    current_phase = self.phase_accumulators[frequency]
+                    note_wave = np.zeros(blocksize)
+
                     # For each active oscillator, generate its waveform
                     for osc in active_oscillators:
                         wave_type = osc.wave_type.get()
                         # Generate appropriate waveform based on selected type
+                        # Each generator now returns (wave, final_phase) tuple
                         if wave_type == 1:
-                            wave = self.generate_sine(frequency, duration)
+                            wave, final_phase = self.generate_sine(frequency, blocksize, current_phase)
                         elif wave_type == 2:
-                            wave = self.generate_square(frequency, duration)
+                            wave, final_phase = self.generate_square(frequency, blocksize, current_phase)
                         elif wave_type == 3:
-                            wave = self.generate_sawtooth(frequency, duration)
+                            wave, final_phase = self.generate_sawtooth(frequency, blocksize, current_phase)
                         elif wave_type == 4:
-                            wave = self.generate_triangle(frequency, duration)
+                            wave, final_phase = self.generate_triangle(frequency, blocksize, current_phase)
                         else:
-                            wave = np.zeros(int(self.sample_rate * duration))
+                            wave = np.zeros(blocksize)
+                            final_phase = current_phase
                         # Apply oscillator volume to the wave
                         wave *= osc.volume.get()
                         note_wave += wave
+
+                    # Store the final phase for next block to maintain continuity
+                    self.phase_accumulators[frequency] = final_phase
+
                     # Average oscillator outputs for this note
                     note_wave /= len(active_oscillators)
                     combined_wave += note_wave
