@@ -1,3 +1,14 @@
+
+#Play with the parameters to get the synthesis a bit cleaner. Spend maybe an
+#hour on it and then see if claude has any suggestions.
+
+#Consider removing normalizer
+
+#Add noise Generator
+
+#Submit to GitHub!
+
+
 import tkinter as tk
 import ttkbootstrap as ttk
 from PIL import Image, ImageTk
