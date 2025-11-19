@@ -1,10 +1,9 @@
 
-#Play with the parameters to get the synthesis a bit cleaner. Spend maybe an
-#hour on it and then see if claude has any suggestions.
 
-#Consider removing normalizer
 
 #Add noise Generator
+
+
 
 #Submit to GitHub!
 
@@ -168,6 +167,10 @@ class SynthFrame(ttk.Frame):
         # Get list of currently pressed note frequencies from keyboard
         music = self.controller.notes_played
 
+        # For monophonic mode: only play the most recently pressed note
+        if len(music) > 0:
+            music = [music[-1]]
+
         # Clean up phase accumulators for notes that are no longer being played
         # This prevents the dictionary from growing indefinitely with old frequencies
         active_frequencies = set(music)
@@ -242,7 +245,7 @@ class SynthFrame(ttk.Frame):
                 self.stream.write(combined_wave.astype('float32'))
 
         # Schedule this method to run again in 10ms (creates continuous audio loop)
-        self.after(10, self.continuous_synthesis)
+        self.after(7, self.continuous_synthesis)
 class KeyboardFrame(ttk.Frame):
     def __init__(self,parent):
         super().__init__(parent, width=1000, height=500)
