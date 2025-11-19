@@ -1,12 +1,7 @@
 
-
-
 #Add noise Generator
 
-
-
 #Submit to GitHub!
-
 
 import tkinter as tk
 import ttkbootstrap as ttk
@@ -242,7 +237,7 @@ class SynthFrame(ttk.Frame):
             samplerate=self.sample_rate,
             channels=1,
             dtype='float32',
-            blocksize=64,
+            blocksize=48,
             latency='low',  # Larger blocksize for more stable audio
             callback=self.audio_callback
         )
