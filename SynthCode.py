@@ -75,7 +75,7 @@ class SynthFrame(ttk.Frame):
     def __init__(self, parent, controller):
         super().__init__(parent, width=1000, height=250)
         self.controller = controller
-        self.sample_rate = 96000
+        self.sample_rate = 48000
         self.amplitude = 0.3
         self.stream = None
         self.is_running = True
@@ -242,7 +242,8 @@ class SynthFrame(ttk.Frame):
             samplerate=self.sample_rate,
             channels=1,
             dtype='float32',
-            blocksize=64,  # Larger blocksize for more stable audio
+            blocksize=200,
+            latency='low',  # Larger blocksize for more stable audio
             callback=self.audio_callback
         )
         self.stream.start()
