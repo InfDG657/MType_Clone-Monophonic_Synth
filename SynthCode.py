@@ -87,7 +87,7 @@ class SynthFrame(ttk.Frame):
         self.frames()
         self.placement()
         self.start_audio_stream()
-        self.continuous_synthesis()
+        
 
     def frames(self):
         self.osc1 = OscFrame(self, 'Osc1')
@@ -242,15 +242,12 @@ class SynthFrame(ttk.Frame):
             samplerate=self.sample_rate,
             channels=1,
             dtype='float32',
-            blocksize=200,
+            blocksize=64,
             latency='low',  # Larger blocksize for more stable audio
             callback=self.audio_callback
         )
         self.stream.start()
 
-    def continuous_synthesis(self):
-        # This method is no longer needed - audio is generated in the callback
-        pass
 class KeyboardFrame(ttk.Frame):
     def __init__(self,parent):
         super().__init__(parent, width=1000, height=500)
