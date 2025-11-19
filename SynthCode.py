@@ -82,6 +82,8 @@ class SynthFrame(ttk.Frame):
         # Phase accumulator dictionary: stores current phase (0 to 2π) for each frequency being played
         # This prevents phase discontinuities between audio blocks and eliminates clicking/buzzing
         self.phase_accumulators = {}
+        self.previous_frequency = None
+        self.phase_cleanup_delay = {}
         self.frames()
         self.placement()
         self.start_audio_stream()
@@ -99,7 +101,8 @@ class SynthFrame(ttk.Frame):
         self.osc1.grid(row=0, column=0, sticky='nesw', padx=5, pady=5)
         self.osc2.grid(row=0, column=1, sticky='nesw', padx=5, pady=5)
         self.osc3.grid(row=0, column=2, sticky='nesw', padx=5, pady=5)
-
+    
+    #Refactor these
     def generate_sine(self, frequency, num_samples, start_phase):
         # Phase-based sine wave generation for continuous synthesis without clicking
         # Calculate how much phase advances per sample: 2π * frequency / sample_rate
@@ -145,107 +148,108 @@ class SynthFrame(ttk.Frame):
         # Return wave and final phase (wrapped to 0-2π range to prevent overflow)
         return wave, phases[-1] % (2 * np.pi)
 
-    def start_audio_stream(self):
-        # Create audio output stream with sounddevice
-        self.stream = sd.OutputStream(
-            samplerate=self.sample_rate,  # 44100 samples per second (CD quality)
-            channels=1,  # Mono output
-            dtype='float32',  # Data type for audio samples
-            blocksize=1500  # Number of samples processed at once (affects latency)
-        )
-        # Start the stream so it's ready to receive audio data
-        self.stream.start()
-
-    def continuous_synthesis(self):
-        # Stop synthesis if is_running flag is False
-
-        blocksize = 1500
-
-        if not self.is_running:
-            return
+    def audio_callback(self, outdata, frames, time_info, status):
+        # This callback runs in a separate thread and is called automatically by sounddevice
+        # It must fill outdata with exactly 'frames' samples
 
         # Get list of currently pressed note frequencies from keyboard
-        music = self.controller.notes_played
+        music = self.controller.notes_played[:]
 
         # For monophonic mode: only play the most recently pressed note
         if len(music) > 0:
-            music = [music[-1]]
+            current_frequency = music[-1]
+            music = [current_frequency]
 
-        # Clean up phase accumulators for notes that are no longer being played
-        # This prevents the dictionary from growing indefinitely with old frequencies
+            # Transfer phase from previous note to new note for smooth transition
+            if self.previous_frequency is not None and current_frequency != self.previous_frequency:
+                if self.previous_frequency in self.phase_accumulators and current_frequency not in self.phase_accumulators:
+                    self.phase_accumulators[current_frequency] = self.phase_accumulators[self.previous_frequency]
+
+            self.previous_frequency = current_frequency
+        else:
+            self.previous_frequency = None
+
+        # Mark inactive frequencies for delayed cleanup
         active_frequencies = set(music)
-        keys_to_remove = [freq for freq in self.phase_accumulators if freq not in active_frequencies]
+        for freq in list(self.phase_accumulators.keys()):
+            if freq not in active_frequencies:
+                if freq not in self.phase_cleanup_delay:
+                    self.phase_cleanup_delay[freq] = 0
+                self.phase_cleanup_delay[freq] += 1
+
+        # Remove phase accumulators after 10 blocks of inactivity
+        keys_to_remove = [freq for freq, count in self.phase_cleanup_delay.items() if count > 10]
         for freq in keys_to_remove:
             del self.phase_accumulators[freq]
+            del self.phase_cleanup_delay[freq]
 
-        # If no notes are being played, send silence to audio stream
+        # Reset cleanup counter for active frequencies
+        for freq in active_frequencies:
+            if freq in self.phase_cleanup_delay:
+                del self.phase_cleanup_delay[freq]
+
+        # If no notes are being played, send silence
         if len(music) == 0:
-            silence = np.zeros(blocksize, dtype='float32')
-            self.stream.write(silence)
+            outdata[:] = np.zeros((frames, 1), dtype='float32')
         else:
             oscillators = [self.osc1, self.osc2, self.osc3]
-            # Filter to only oscillators that have a waveform selected (wave_type != 0)
             active_oscillators = [osc for osc in oscillators if osc.wave_type.get() != 0]
 
             # If no oscillators are active, send silence
             if len(active_oscillators) == 0:
-                silence = np.zeros(blocksize, dtype='float32')
-                self.stream.write(silence)
+                outdata[:] = np.zeros((frames, 1), dtype='float32')
             else:
-                # Initialize empty array to hold all combined audio
-                combined_wave = np.zeros(blocksize)
+                combined_wave = np.zeros(frames)
 
-                # Loop through each note frequency being played
                 for frequency in music:
-                    # Initialize phase accumulator for new frequencies (starts at 0)
                     if frequency not in self.phase_accumulators:
                         self.phase_accumulators[frequency] = 0.0
 
-                    # Get the current phase for this frequency to maintain continuity
                     current_phase = self.phase_accumulators[frequency]
-                    note_wave = np.zeros(blocksize)
+                    note_wave = np.zeros(frames)
 
-                    # For each active oscillator, generate its waveform
                     for osc in active_oscillators:
                         wave_type = osc.wave_type.get()
-                        # Generate appropriate waveform based on selected type
-                        # Each generator now returns (wave, final_phase) tuple
                         if wave_type == 1:
-                            wave, final_phase = self.generate_sine(frequency, blocksize, current_phase)
+                            wave, final_phase = self.generate_sine(frequency, frames, current_phase)
                         elif wave_type == 2:
-                            wave, final_phase = self.generate_square(frequency, blocksize, current_phase)
+                            wave, final_phase = self.generate_square(frequency, frames, current_phase)
                         elif wave_type == 3:
-                            wave, final_phase = self.generate_sawtooth(frequency, blocksize, current_phase)
+                            wave, final_phase = self.generate_sawtooth(frequency, frames, current_phase)
                         elif wave_type == 4:
-                            wave, final_phase = self.generate_triangle(frequency, blocksize, current_phase)
+                            wave, final_phase = self.generate_triangle(frequency, frames, current_phase)
                         else:
-                            wave = np.zeros(blocksize)
+                            wave = np.zeros(frames)
                             final_phase = current_phase
-                        # Apply oscillator volume to the wave
                         wave *= osc.volume.get()
                         note_wave += wave
 
-                    # Store the final phase for next block to maintain continuity
                     self.phase_accumulators[frequency] = final_phase
-
-                    # Average oscillator outputs for this note
                     note_wave /= len(active_oscillators)
                     combined_wave += note_wave
 
-                # Average all notes together
                 combined_wave /= max(len(music), 1)
-                # Apply master amplitude
                 combined_wave *= self.amplitude
-                # Prevent clipping by normalizing if wave exceeds -1 to 1 range
                 max_val = np.max(np.abs(combined_wave))
                 if max_val > 1.0:
                     combined_wave /= max_val
 
-                # Send the audio data to the output stream
-                self.stream.write(combined_wave.astype('float32'))
+                outdata[:] = combined_wave.reshape(-1, 1).astype('float32')
 
-        # Schedule this method to run again in 10ms (creates continuous audio loop)
-        self.after(7, self.continuous_synthesis)
+    def start_audio_stream(self):
+        # Create audio output stream with callback
+        self.stream = sd.OutputStream(
+            samplerate=self.sample_rate,
+            channels=1,
+            dtype='float32',
+            blocksize=64,  # Larger blocksize for more stable audio
+            callback=self.audio_callback
+        )
+        self.stream.start()
+
+    def continuous_synthesis(self):
+        # This method is no longer needed - audio is generated in the callback
+        pass
 class KeyboardFrame(ttk.Frame):
     def __init__(self,parent):
         super().__init__(parent, width=1000, height=500)
@@ -253,7 +257,6 @@ class KeyboardFrame(ttk.Frame):
         image_original = Image.open(r'Assets/piano.jpg').resize((1000,500))
         self.keyboard_img = ImageTk.PhotoImage(image_original)
         self.notes_played = []
-        
         self.widgets()
         self.placement()
         self.bindings()
@@ -327,7 +330,6 @@ class KeyboardFrame(ttk.Frame):
             label, original_bg, frequency = self.key_map[key]
             label.config(background=original_bg)
             self.notes_played = [i for i in self.notes_played if i != frequency]
-
 class MainWin(ttk.Window):
     def __init__(self):
         super().__init__(themename='cyborg')
