@@ -9,6 +9,7 @@ from PIL import Image, ImageTk
 import numpy as np
 import sounddevice as sd
 
+
 class OscFrame(ttk.Frame):
     def __init__(self, parent, text):
         super().__init__(parent, borderwidth=2, relief='solid')
@@ -237,7 +238,7 @@ class SynthFrame(ttk.Frame):
             samplerate=self.sample_rate,
             channels=1,
             dtype='float32',
-            blocksize=48,
+            blocksize=480,
             latency='low',  # Larger blocksize for more stable audio
             callback=self.audio_callback
         )
@@ -341,4 +342,5 @@ class MainWin(ttk.Window):
         self.keyboard.pack()
 
 if __name__ == '__main__':
+    sd.default.device = (sd.default.device[0], 8)
     window = MainWin()
