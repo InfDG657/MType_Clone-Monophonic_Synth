@@ -18,6 +18,7 @@ class ADSRFrame(ttk.Frame):
         self.obtain_values()
 
     def widgets(self):
+        self.filter_enabled = tk.BooleanVar(value=False)
         self.title = ttk.Label(self, text='Env')
         self.label1 = ttk.Label(self, text='Attack')
         # Create attack meter with range 0-1 seconds
@@ -29,12 +30,14 @@ class ADSRFrame(ttk.Frame):
         # Link meter to decay DoubleVar so user adjustments update the ADSR parameter
         self.label3 = ttk.Label(self, text='Sustain')
         # Create sustain meter with range 0-1 (amplitude level, not time)
-        self.meter3 = ttk.Meter(self, bootstyle='light', amounttotal=10, amountused=9, metersize=30, showtext=False, meterthickness=5, arcrange=270, arcoffset=135, interactive=True)
+        self.meter3 = ttk.Meter(self, bootstyle='light', amounttotal=10, amountused=1, metersize=30, showtext=False, meterthickness=5, arcrange=270, arcoffset=135, interactive=True)
         # Link meter to sustain DoubleVar so user adjustments update the ADSR parameter
         self.label4 = ttk.Label(self, text='Release')
         # Create release meter with range 0-1 seconds
-        self.meter4 = ttk.Meter(self, bootstyle='light', amounttotal=10, amountused=5, metersize=30, showtext=False, meterthickness=5, arcrange=270, arcoffset=135, interactive=True)
+        self.meter4 = ttk.Meter(self, bootstyle='light', amounttotal=10, amountused=1, metersize=30, showtext=False, meterthickness=5, arcrange=270, arcoffset=135, interactive=True)
         # Link meter to release DoubleVar so user adjustments update the ADSR parameter
+        self.label5 = ttk.Label(self, text='On')
+        self.filter_switch = ttk.Checkbutton(self, bootstyle='round-toggle', variable=self.filter_enabled)
     
     def obtain_values(self): 
         self.attack = self.meter1.amountusedvar.get()
@@ -44,17 +47,19 @@ class ADSRFrame(ttk.Frame):
         self.after(50, self.obtain_values)
 
     def placement(self):
-        self.rowconfigure((0,1,2,3,4), weight=1)
+        self.rowconfigure((0,1,2,3,4,5), weight=1)
         self.columnconfigure((0,1), weight=1)
         self.title.grid(row=0, column=0, columnspan=2, sticky='nesw', padx=5, pady=5)
-        self.label1.grid(row=1, column=0, sticky='nesw', padx=5, pady=5)
-        self.meter1.grid(row=1, column=1, sticky='nesw', padx=5, pady=5)
-        self.label2.grid(row=2, column=0, sticky='nesw', padx=5, pady=5)
-        self.meter2.grid(row=2, column=1, sticky='nesw', padx=5, pady=5)
-        self.label3.grid(row=3, column=0, sticky='nesw', padx=5, pady=5)
-        self.meter3.grid(row=3, column=1, sticky='nesw', padx=5, pady=5)
-        self.label4.grid(row=4, column=0, sticky='nesw', padx=5, pady=5)
-        self.meter4.grid(row=4, column=1, sticky='nesw', padx=5, pady=5)
+        self.label5.grid(row=1, column=0, sticky='nesw', padx=5, pady=5)
+        self.filter_switch.grid(row=1, column=1, sticky='nesw', padx=5, pady=5)
+        self.label1.grid(row=2, column=0, sticky='nesw', padx=5, pady=5)
+        self.meter1.grid(row=2, column=1, sticky='nesw', padx=5, pady=5)
+        self.label2.grid(row=3, column=0, sticky='nesw', padx=5, pady=5)
+        self.meter2.grid(row=3, column=1, sticky='nesw', padx=5, pady=5)
+        self.label3.grid(row=4, column=0, sticky='nesw', padx=5, pady=5)
+        self.meter3.grid(row=4, column=1, sticky='nesw', padx=5, pady=5)
+        self.label4.grid(row=5, column=0, sticky='nesw', padx=5, pady=5)
+        self.meter4.grid(row=5, column=1, sticky='nesw', padx=5, pady=5)
 
 class OscFrame(ttk.Frame):
     def __init__(self, parent, text):
@@ -325,10 +330,11 @@ class SynthFrame(ttk.Frame):
                     self.phase_accumulators[frequency] = final_phase
                     note_wave /= len(active_oscillators)
 
-                    current_sample_position = self.note_press_times[frequency]
-                    envelope = self.generate_adsr_envelope(frequency, frames, current_sample_position)
-                    self.note_envelope_positions[frequency] = envelope[-1]
-                    note_wave *= envelope
+                    if self.adsr.filter_enabled.get():
+                        current_sample_position = self.note_press_times[frequency]
+                        envelope = self.generate_adsr_envelope(frequency, frames, current_sample_position)
+                        self.note_envelope_positions[frequency] = envelope[-1]
+                        note_wave *= envelope
 
                     self.note_press_times[frequency] += frames
                     if frequency in self.note_release_times:
