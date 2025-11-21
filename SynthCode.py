@@ -10,6 +10,52 @@ import numpy as np
 import sounddevice as sd
 
 
+class ADSRFrame(ttk.Frame):
+    def __init__(self, parent):
+        super().__init__(parent, borderwidth=2, relief='solid')
+        self.widgets()
+        self.placement()
+        self.obtain_values()
+
+    def widgets(self):
+        self.title = ttk.Label(self, text='Env')
+        self.label1 = ttk.Label(self, text='Attack')
+        # Create attack meter with range 0-1 seconds
+        self.meter1 = ttk.Meter(self, bootstyle='light', amounttotal=10, amountused=0.1, metersize=30, showtext=False, meterthickness=5, arcrange=270, arcoffset=135, interactive=True)
+        # Link meter to attack DoubleVar so user adjustments update the ADSR parameter
+        self.label2 = ttk.Label(self, text='Decay')
+        # Create decay meter with range 0-1 seconds
+        self.meter2 = ttk.Meter(self, bootstyle='light', amounttotal=10, amountused=0.1, metersize=30, showtext=False, meterthickness=5, arcrange=270, arcoffset=135, interactive=True)
+        # Link meter to decay DoubleVar so user adjustments update the ADSR parameter
+        self.label3 = ttk.Label(self, text='Sustain')
+        # Create sustain meter with range 0-1 (amplitude level, not time)
+        self.meter3 = ttk.Meter(self, bootstyle='light', amounttotal=10, amountused=0.1, metersize=30, showtext=False, meterthickness=5, arcrange=270, arcoffset=135, interactive=True)
+        # Link meter to sustain DoubleVar so user adjustments update the ADSR parameter
+        self.label4 = ttk.Label(self, text='Release')
+        # Create release meter with range 0-1 seconds
+        self.meter4 = ttk.Meter(self, bootstyle='light', amounttotal=10, amountused=0.1, metersize=30, showtext=False, meterthickness=5, arcrange=270, arcoffset=135, interactive=True)
+        # Link meter to release DoubleVar so user adjustments update the ADSR parameter
+    
+    def obtain_values(self): 
+        self.attack = self.meter1.amountusedvar.get()
+        self.decay = self.meter2.amountusedvar.get()
+        self.sustain = self.meter3.amountusedvar.get()
+        self.release = self.meter4.amountusedvar.get()
+        self.after(50, self.obtain_values)
+
+    def placement(self):
+        self.rowconfigure((0,1,2,3,4), weight=1)
+        self.columnconfigure((0,1), weight=1)
+        self.title.grid(row=0, column=0, columnspan=2, sticky='nesw', padx=5, pady=5)
+        self.label1.grid(row=1, column=0, sticky='nesw', padx=5, pady=5)
+        self.meter1.grid(row=1, column=1, sticky='nesw', padx=5, pady=5)
+        self.label2.grid(row=2, column=0, sticky='nesw', padx=5, pady=5)
+        self.meter2.grid(row=2, column=1, sticky='nesw', padx=5, pady=5)
+        self.label3.grid(row=3, column=0, sticky='nesw', padx=5, pady=5)
+        self.meter3.grid(row=3, column=1, sticky='nesw', padx=5, pady=5)
+        self.label4.grid(row=4, column=0, sticky='nesw', padx=5, pady=5)
+        self.meter4.grid(row=4, column=1, sticky='nesw', padx=5, pady=5)
+
 class OscFrame(ttk.Frame):
     def __init__(self, parent, text):
         super().__init__(parent, borderwidth=2, relief='solid')
@@ -80,6 +126,12 @@ class SynthFrame(ttk.Frame):
         self.phase_accumulators = {}
         self.previous_frequency = None
         self.phase_cleanup_delay = {}
+        # Dictionary to track how many samples have elapsed since each note was pressed (for ADSR timing)
+        self.note_press_times = {}
+        # Dictionary to track when notes were released (stores sample position at release time)
+        self.note_release_times = {}
+        # Dictionary to store the current envelope amplitude for each note (0.0 to 1.0)
+        self.note_envelope_positions = {}
         self.frames()
         self.placement()
         self.start_audio_stream()
@@ -89,15 +141,66 @@ class SynthFrame(ttk.Frame):
         self.osc1 = OscFrame(self, 'Osc1')
         self.osc2 = OscFrame(self, 'Osc2')
         self.osc3 = OscFrame(self, 'Osc3')
+        self.adsr = ADSRFrame(self)
 
     def placement(self):
         self.rowconfigure(0, weight=1)
-        self.columnconfigure((0,1,2), weight=1, uniform='a')
+        self.columnconfigure((0,1,2,3), weight=1, uniform='a')
 
         self.osc1.grid(row=0, column=0, sticky='nesw', padx=5, pady=5)
         self.osc2.grid(row=0, column=1, sticky='nesw', padx=5, pady=5)
         self.osc3.grid(row=0, column=2, sticky='nesw', padx=5, pady=5)
+        self.adsr.grid(row=0, column=3, sticky='nesw', padx=5, pady=5)
     
+    def generate_adsr_envelope(self, frequency, num_samples, current_sample_position):
+        # Get current ADSR parameter values from the UI controls
+        attack = self.adsr.attack / 10
+        decay = self.adsr.decay / 10
+        sustain = self.adsr.sustain / 10
+        release = self.adsr.release / 10
+
+        # Convert time values (seconds) to number of samples
+        attack_samples = int(attack * self.sample_rate)
+        decay_samples = int(decay * self.sample_rate)
+        release_samples = int(release * self.sample_rate)
+
+        # Create array to hold envelope values for this audio block
+        envelope = np.ones(num_samples)
+
+        # Check if this note has been released
+        is_released = frequency in self.note_release_times
+
+        # Calculate envelope value for each sample in this block
+        for i in range(num_samples):
+            # Get absolute sample position since note was pressed
+            sample_pos = current_sample_position + i
+
+            if is_released:
+                # Release phase: fade from current level to 0
+                release_start_pos = self.note_release_times[frequency]
+                samples_since_release = sample_pos - release_start_pos
+
+                # Linear fade from release level to 0 over release_samples
+                if samples_since_release < release_samples:
+                    release_level = self.note_envelope_positions.get(frequency, sustain)
+                    envelope[i] = release_level * (1.0 - samples_since_release / release_samples)
+                else:
+                    # Release phase complete, envelope at 0
+                    envelope[i] = 0.0
+            else:
+                # Attack phase: ramp from 0 to 1
+                if sample_pos < attack_samples:
+                    envelope[i] = sample_pos / attack_samples
+                # Decay phase: ramp from 1 down to sustain level
+                elif sample_pos < attack_samples + decay_samples:
+                    decay_progress = (sample_pos - attack_samples) / decay_samples
+                    envelope[i] = 1.0 - (1.0 - sustain) * decay_progress
+                # Sustain phase: hold at sustain level
+                else:
+                    envelope[i] = sustain
+
+        return envelope
+
     #Refactor these
     def generate_wave(self, frequency, num_samples, start_phase, wave_type):
         # Phase-based sine wave generation for continuous synthesis without clicking
@@ -140,8 +243,27 @@ class SynthFrame(ttk.Frame):
         else:
             self.previous_frequency = None
 
-        # Mark inactive frequencies for delayed cleanup
+        # Track note press times for ADSR envelope timing
         active_frequencies = set(music)
+        for freq in active_frequencies:
+            # Initialize timing for newly pressed notes
+            if freq not in self.note_press_times:
+                self.note_press_times[freq] = 0
+                self.note_envelope_positions[freq] = 0.0
+            # If note was released but is now pressed again, remove release state
+            if freq in self.note_release_times:
+                del self.note_release_times[freq]
+
+        # Track note release times for release phase of ADSR
+        for freq in list(self.note_press_times.keys()):
+            # If note is no longer active and hasn't been marked as released yet
+            if freq not in active_frequencies and freq not in self.note_release_times:
+                # Mark release time and save current envelope level for release fade
+                self.note_release_times[freq] = self.note_press_times[freq]
+                current_env = self.note_envelope_positions.get(freq, 0.0)
+                self.note_envelope_positions[freq] = current_env
+
+        # Mark inactive frequencies for delayed cleanup
         for freq in list(self.phase_accumulators.keys()):
             if freq not in active_frequencies:
                 if freq not in self.phase_cleanup_delay:
@@ -153,14 +275,24 @@ class SynthFrame(ttk.Frame):
         for freq in keys_to_remove:
             del self.phase_accumulators[freq]
             del self.phase_cleanup_delay[freq]
+            # Clean up ADSR tracking dictionaries for removed notes
+            if freq in self.note_press_times:
+                del self.note_press_times[freq]
+            if freq in self.note_release_times:
+                del self.note_release_times[freq]
+            if freq in self.note_envelope_positions:
+                del self.note_envelope_positions[freq]
 
         # Reset cleanup counter for active frequencies
         for freq in active_frequencies:
             if freq in self.phase_cleanup_delay:
                 del self.phase_cleanup_delay[freq]
 
-        # If no notes are being played, send silence
-        if len(music) == 0:
+        # Collect all frequencies to render (active notes + notes in release phase)
+        all_frequencies = set(music) | set(self.note_release_times.keys())
+
+        # If no notes are being played or releasing, send silence
+        if len(all_frequencies) == 0:
             outdata[:] = np.zeros((frames, 1), dtype='float32')
         else:
             oscillators = [self.osc1, self.osc2, self.osc3]
@@ -172,7 +304,7 @@ class SynthFrame(ttk.Frame):
             else:
                 combined_wave = np.zeros(frames)
 
-                for frequency in music:
+                for frequency in all_frequencies:
                     if frequency not in self.phase_accumulators:
                         self.phase_accumulators[frequency] = 0.0
 
@@ -184,7 +316,7 @@ class SynthFrame(ttk.Frame):
                         if wave_type < 1:
                             wave = np.zeros(frames)
                             final_phase = current_phase
-                            
+
                         else:
                             wave, final_phase = self.generate_wave(frequency, frames, current_phase, wave_type)
                         wave *= osc.volume.get()
@@ -192,9 +324,19 @@ class SynthFrame(ttk.Frame):
 
                     self.phase_accumulators[frequency] = final_phase
                     note_wave /= len(active_oscillators)
+
+                    current_sample_position = self.note_press_times[frequency]
+                    envelope = self.generate_adsr_envelope(frequency, frames, current_sample_position)
+                    self.note_envelope_positions[frequency] = envelope[-1]
+                    note_wave *= envelope
+
+                    self.note_press_times[frequency] += frames
+                    if frequency in self.note_release_times:
+                        self.note_release_times[frequency] += frames
+
                     combined_wave += note_wave
 
-                combined_wave /= max(len(music), 1)
+                combined_wave /= max(len(all_frequencies), 1)
                 combined_wave *= self.amplitude
                 max_val = np.max(np.abs(combined_wave))
                 if max_val > 1.0:
