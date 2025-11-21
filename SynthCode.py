@@ -99,50 +99,25 @@ class SynthFrame(ttk.Frame):
         self.osc3.grid(row=0, column=2, sticky='nesw', padx=5, pady=5)
     
     #Refactor these
-    def generate_sine(self, frequency, num_samples, start_phase):
+    def generate_wave(self, frequency, num_samples, start_phase, wave_type):
         # Phase-based sine wave generation for continuous synthesis without clicking
         # Calculate how much phase advances per sample: 2π * frequency / sample_rate
         phase_increment = 2 * np.pi * frequency / self.sample_rate
         # Create array of phase values starting from start_phase and incrementing by phase_increment
         phases = start_phase + np.arange(num_samples) * phase_increment
         # Generate sine wave from phase values
-        wave = np.sin(phases)
-        # Return wave and final phase (wrapped to 0-2π range to prevent overflow)
+        if wave_type == 1:
+            wave = np.sin(phases)
+        elif wave_type == 2:
+            wave = np.sign(np.sin(phases))
+        elif wave_type == 3:
+            wave = 2 * (phases / (2 * np.pi) % 1.0) - 1
+        elif wave_type == 4:
+            sawtooth = 2 * (phases / (2 * np.pi) % 1.0) - 1
+            wave = 2 * np.abs(sawtooth) - 1
+        
         return wave, phases[-1] % (2 * np.pi)
 
-    def generate_square(self, frequency, num_samples, start_phase):
-        # Phase-based square wave generation for continuous synthesis without clicking
-        # Calculate how much phase advances per sample: 2π * frequency / sample_rate
-        phase_increment = 2 * np.pi * frequency / self.sample_rate
-        # Create array of phase values starting from start_phase and incrementing by phase_increment
-        phases = start_phase + np.arange(num_samples) * phase_increment
-        # Generate square wave by taking sign of sine (converts smooth wave to +1/-1 values)
-        wave = np.sign(np.sin(phases))
-        # Return wave and final phase (wrapped to 0-2π range to prevent overflow)
-        return wave, phases[-1] % (2 * np.pi)
-
-    def generate_sawtooth(self, frequency, num_samples, start_phase):
-        # Phase-based sawtooth wave generation for continuous synthesis without clicking
-        # Calculate how much phase advances per sample: 2π * frequency / sample_rate
-        phase_increment = 2 * np.pi * frequency / self.sample_rate
-        # Create array of phase values starting from start_phase and incrementing by phase_increment
-        phases = start_phase + np.arange(num_samples) * phase_increment
-        # Convert phase (0 to 2π) to sawtooth (-1 to 1) by normalizing and shifting
-        wave = 2 * (phases / (2 * np.pi) % 1.0) - 1
-        # Return wave and final phase (wrapped to 0-2π range to prevent overflow)
-        return wave, phases[-1] % (2 * np.pi)
-
-    def generate_triangle(self, frequency, num_samples, start_phase):
-        # Phase-based triangle wave generation for continuous synthesis without clicking
-        # Calculate how much phase advances per sample: 2π * frequency / sample_rate
-        phase_increment = 2 * np.pi * frequency / self.sample_rate
-        # Create array of phase values starting from start_phase and incrementing by phase_increment
-        phases = start_phase + np.arange(num_samples) * phase_increment
-        # Convert phase to sawtooth, take absolute value and scale to create triangle shape
-        sawtooth = 2 * (phases / (2 * np.pi) % 1.0) - 1
-        wave = 2 * np.abs(sawtooth) - 1
-        # Return wave and final phase (wrapped to 0-2π range to prevent overflow)
-        return wave, phases[-1] % (2 * np.pi)
 
     def audio_callback(self, outdata, frames, time_info, status):
         # This callback runs in a separate thread and is called automatically by sounddevice
@@ -206,17 +181,12 @@ class SynthFrame(ttk.Frame):
 
                     for osc in active_oscillators:
                         wave_type = osc.wave_type.get()
-                        if wave_type == 1:
-                            wave, final_phase = self.generate_sine(frequency, frames, current_phase)
-                        elif wave_type == 2:
-                            wave, final_phase = self.generate_square(frequency, frames, current_phase)
-                        elif wave_type == 3:
-                            wave, final_phase = self.generate_sawtooth(frequency, frames, current_phase)
-                        elif wave_type == 4:
-                            wave, final_phase = self.generate_triangle(frequency, frames, current_phase)
-                        else:
+                        if wave_type < 1:
                             wave = np.zeros(frames)
                             final_phase = current_phase
+                            
+                        else:
+                            wave, final_phase = self.generate_wave(frequency, frames, current_phase, wave_type)
                         wave *= osc.volume.get()
                         note_wave += wave
 
