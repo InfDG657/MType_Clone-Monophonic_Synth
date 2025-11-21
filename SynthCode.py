@@ -21,19 +21,19 @@ class ADSRFrame(ttk.Frame):
         self.title = ttk.Label(self, text='Env')
         self.label1 = ttk.Label(self, text='Attack')
         # Create attack meter with range 0-1 seconds
-        self.meter1 = ttk.Meter(self, bootstyle='light', amounttotal=10, amountused=0.1, metersize=30, showtext=False, meterthickness=5, arcrange=270, arcoffset=135, interactive=True)
+        self.meter1 = ttk.Meter(self, bootstyle='light', amounttotal=10, amountused=1, metersize=30, showtext=False, meterthickness=5, arcrange=270, arcoffset=135, interactive=True)
         # Link meter to attack DoubleVar so user adjustments update the ADSR parameter
         self.label2 = ttk.Label(self, text='Decay')
         # Create decay meter with range 0-1 seconds
-        self.meter2 = ttk.Meter(self, bootstyle='light', amounttotal=10, amountused=0.1, metersize=30, showtext=False, meterthickness=5, arcrange=270, arcoffset=135, interactive=True)
+        self.meter2 = ttk.Meter(self, bootstyle='light', amounttotal=10, amountused=1, metersize=30, showtext=False, meterthickness=5, arcrange=270, arcoffset=135, interactive=True)
         # Link meter to decay DoubleVar so user adjustments update the ADSR parameter
         self.label3 = ttk.Label(self, text='Sustain')
         # Create sustain meter with range 0-1 (amplitude level, not time)
-        self.meter3 = ttk.Meter(self, bootstyle='light', amounttotal=10, amountused=0.1, metersize=30, showtext=False, meterthickness=5, arcrange=270, arcoffset=135, interactive=True)
+        self.meter3 = ttk.Meter(self, bootstyle='light', amounttotal=10, amountused=9, metersize=30, showtext=False, meterthickness=5, arcrange=270, arcoffset=135, interactive=True)
         # Link meter to sustain DoubleVar so user adjustments update the ADSR parameter
         self.label4 = ttk.Label(self, text='Release')
         # Create release meter with range 0-1 seconds
-        self.meter4 = ttk.Meter(self, bootstyle='light', amounttotal=10, amountused=0.1, metersize=30, showtext=False, meterthickness=5, arcrange=270, arcoffset=135, interactive=True)
+        self.meter4 = ttk.Meter(self, bootstyle='light', amounttotal=10, amountused=5, metersize=30, showtext=False, meterthickness=5, arcrange=270, arcoffset=135, interactive=True)
         # Link meter to release DoubleVar so user adjustments update the ADSR parameter
     
     def obtain_values(self): 
