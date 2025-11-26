@@ -21,7 +21,7 @@ class VolOctFrame(ttk.Frame):
 
     def widgets(self):
         self.label1 = ttk.Label(self, text='Noise:')
-        self.scale1 = ttk.Scale(self, from_= 0, to = 10, value=0, variable= self.noise, bootstyle = 'light')
+        self.scale1 = ttk.Scale(self, from_= 0, to = 3, value=0, variable= self.noise, bootstyle = 'light')
         self.label2 = ttk.Label(self, text='Octave:')
         self.btn1 = ttk.Button(self, text='-', bootstyle='secondary', command=lambda e=1: self.handle_octave_down(e))
         self.entry1 = ttk.Entry(self, textvariable=self.octave, width=2)
@@ -48,6 +48,11 @@ class VolOctFrame(ttk.Frame):
 
     def handle_octave_down(self, event):
         pass
+
+    def generate_noise(self, num_samples):
+        noise_level = self.noise.get() / 10
+        noise = np.random.uniform(-1, 1, num_samples) * noise_level
+        return noise
     
 class ADSRFrame(ttk.Frame):
     def __init__(self, parent):
@@ -384,6 +389,8 @@ class SynthFrame(ttk.Frame):
                     combined_wave += note_wave
 
                 combined_wave /= max(len(all_frequencies), 1)
+                noise = self.vol_oct.generate_noise(frames)
+                combined_wave += noise
                 combined_wave *= self.amplitude
                 max_val = np.max(np.abs(combined_wave))
                 if max_val > 1.0:
