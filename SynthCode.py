@@ -14,17 +14,19 @@ class VolOctFrame(ttk.Frame):
     def __init__(self, parent):
         super().__init__(parent)
         self.octave = tk.IntVar(value=0)
+        self.octave_display = tk.StringVar(value='0')
         self.noise = tk.DoubleVar(value=0)
         self.widgets()
         self.placement()
         self.bindings()
+        self.update_octave_display()
 
     def widgets(self):
         self.label1 = ttk.Label(self, text='Noise:')
         self.scale1 = ttk.Scale(self, from_= 0, to = 3, value=0, variable= self.noise, bootstyle = 'light')
         self.label2 = ttk.Label(self, text='Octave:')
         self.btn1 = ttk.Button(self, text='-', bootstyle='secondary', command=lambda e=1: self.handle_octave_down(e))
-        self.entry1 = ttk.Entry(self, textvariable=self.octave, width=2)
+        self.entry1 = ttk.Entry(self, textvariable=self.octave_display, width=3)
         self.btn2 = ttk.Button(self, text='+', bootstyle='secondary', command=lambda e=1: self.handle_octave_up(e))
         
 
@@ -41,13 +43,27 @@ class VolOctFrame(ttk.Frame):
 
     def bindings(self):
         self.master.bind('<Left>', self.handle_octave_down)
-        self.master.bind('<Right>', self.handle_octave_down)
+        self.master.bind('<Right>', self.handle_octave_up)
+        self.entry1.config(state='readonly')
 
     def handle_octave_up(self, event):
-        pass
+        current = self.octave.get()
+        if current < 4:
+            self.octave.set(current + 1)
+            self.update_octave_display()
 
     def handle_octave_down(self, event):
-        pass
+        current = self.octave.get()
+        if current > -4:
+            self.octave.set(current - 1)
+            self.update_octave_display()
+
+    def update_octave_display(self):
+        value = self.octave.get()
+        if value > 0:
+            self.octave_display.set(f'+{value}')
+        else:
+            self.octave_display.set(str(value))
 
     def generate_noise(self, num_samples):
         noise_level = self.noise.get() / 10
@@ -183,7 +199,6 @@ class SynthFrame(ttk.Frame):
         self.note_envelope_positions = {}
         self.frames()
         self.placement()
-        self.start_audio_stream()
         
 
     def frames(self):
@@ -411,12 +426,13 @@ class SynthFrame(ttk.Frame):
         self.stream.start()
 
 class KeyboardFrame(ttk.Frame):
-    def __init__(self,parent):
+    def __init__(self,parent, vol_oct):
         super().__init__(parent, width=1000, height=500)
 
         image_original = Image.open(r'Assets/piano.jpg').resize((1000,500))
         self.keyboard_img = ImageTk.PhotoImage(image_original)
         self.notes_played = []
+        self.vol_oct = vol_oct
         self.widgets()
         self.placement()
         self.bindings()
@@ -479,16 +495,20 @@ class KeyboardFrame(ttk.Frame):
     def handle_key_press(self, event):
         key = event.char.lower()
         if key in self.key_map:
-            label, original_bg, frequency = self.key_map[key]
+            label, original_bg, base_frequency = self.key_map[key]
             label.config(background='blue')
+            octave_shift = self.vol_oct.octave.get()
+            frequency = base_frequency * (2 ** octave_shift)
             if frequency not in self.notes_played:
                 self.notes_played.append(frequency)
 
     def handle_key_release(self, event):
         key = event.char.lower()
         if key in self.key_map:
-            label, original_bg, frequency = self.key_map[key]
+            label, original_bg, base_frequency = self.key_map[key]
             label.config(background=original_bg)
+            octave_shift = self.vol_oct.octave.get()
+            frequency = base_frequency * (2 ** octave_shift)
             self.notes_played = [i for i in self.notes_played if i != frequency]
 class MainWin(ttk.Window):
     def __init__(self):
@@ -500,8 +520,10 @@ class MainWin(ttk.Window):
         self.mainloop()
 
     def frames(self):
-        self.keyboard = KeyboardFrame(self)
-        self.synth = SynthFrame(self, self.keyboard)
+        self.synth = SynthFrame(self, None)
+        self.keyboard = KeyboardFrame(self, self.synth.vol_oct)
+        self.synth.controller = self.keyboard
+        self.synth.start_audio_stream()
 
     def placement(self):
         self.synth.pack()
