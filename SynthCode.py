@@ -10,6 +10,45 @@ import numpy as np
 import sounddevice as sd
 
 
+class VolOctFrame(ttk.Frame):
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.octave = tk.IntVar(value=0)
+        self.noise = tk.DoubleVar(value=0)
+        self.widgets()
+        self.placement()
+        self.bindings()
+
+    def widgets(self):
+        self.label1 = ttk.Label(self, text='Noise:')
+        self.scale1 = ttk.Scale(self, from_= 0, to = 10, value=0, variable= self.noise, bootstyle = 'light')
+        self.label2 = ttk.Label(self, text='Octave:')
+        self.btn1 = ttk.Button(self, text='-', bootstyle='secondary', command=lambda e=1: self.handle_octave_down(e))
+        self.entry1 = ttk.Entry(self, textvariable=self.octave, width=2)
+        self.btn2 = ttk.Button(self, text='+', bootstyle='secondary', command=lambda e=1: self.handle_octave_up(e))
+        
+
+    def placement(self):
+        self.rowconfigure((0,1), weight=1, uniform='a')
+        self.columnconfigure((0,1,2,3), weight=1, uniform='a')
+        self.label1.grid(row=0, column=0)
+        self.scale1.grid(row=0, column = 1, columnspan=3, sticky='ew')
+        self.label2.grid(row=1, column= 0)
+        self.btn1.grid(row=1, column=1)
+        self.entry1.grid(row=1, column=2)
+        self.btn2.grid(row=1, column=3)
+        
+
+    def bindings(self):
+        self.master.bind('<Left>', self.handle_octave_down)
+        self.master.bind('<Right>', self.handle_octave_down)
+
+    def handle_octave_up(self, event):
+        pass
+
+    def handle_octave_down(self, event):
+        pass
+    
 class ADSRFrame(ttk.Frame):
     def __init__(self, parent):
         super().__init__(parent, borderwidth=2, relief='solid')
@@ -80,7 +119,7 @@ class OscFrame(ttk.Frame):
         self.label3 = ttk.Label(self, text='╱')
         self.switch4 = ttk.Checkbutton(self, bootstyle='round-toggle', command=lambda: self.select_wave(4))
         self.label4 = ttk.Label(self, text='⋀⋁')
-        self.volume_slider = ttk.Scale(self, from_=0.0, to=1.0, orient='vertical', variable=self.volume)
+        self.volume_slider = ttk.Scale(self, from_=0.0, to=1.0, orient='vertical', bootstyle='light', variable=self.volume)
 
     def placement(self):
         self.rowconfigure((0,1,2,3,4), weight=1)
@@ -147,16 +186,18 @@ class SynthFrame(ttk.Frame):
         self.osc2 = OscFrame(self, 'Osc2')
         self.osc3 = OscFrame(self, 'Osc3')
         self.adsr = ADSRFrame(self)
+        self.vol_oct = VolOctFrame(self)
 
     def placement(self):
         self.rowconfigure(0, weight=1)
-        self.columnconfigure((0,1,2,3), weight=1, uniform='a')
+        self.columnconfigure((0,1,2,3,4,5), weight=1, uniform='a')
 
         self.osc1.grid(row=0, column=0, sticky='nesw', padx=5, pady=5)
         self.osc2.grid(row=0, column=1, sticky='nesw', padx=5, pady=5)
         self.osc3.grid(row=0, column=2, sticky='nesw', padx=5, pady=5)
         self.adsr.grid(row=0, column=3, sticky='nesw', padx=5, pady=5)
-    
+        self.vol_oct.grid(row=0, column=4, columnspan=2, sticky='nesw', padx=5, pady=5)
+
     def generate_adsr_envelope(self, frequency, num_samples, current_sample_position):
         # Get current ADSR parameter values from the UI controls
         attack = self.adsr.attack / 10
