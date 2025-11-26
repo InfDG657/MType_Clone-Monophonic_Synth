@@ -42,21 +42,28 @@ class VolOctFrame(ttk.Frame):
         
 
     def bindings(self):
-        self.master.bind('<Left>', self.handle_octave_down)
-        self.master.bind('<Right>', self.handle_octave_up)
+        self.bind_all('<KeyPress-Left>', self.handle_octave_down)
+        self.bind_all('<KeyPress-Right>', self.handle_octave_up)
         self.entry1.config(state='readonly')
 
     def handle_octave_up(self, event):
         current = self.octave.get()
         if current < 4:
+            self.update_playing_frequencies()
             self.octave.set(current + 1)
             self.update_octave_display()
 
     def handle_octave_down(self, event):
         current = self.octave.get()
         if current > -4:
+            self.update_playing_frequencies()
             self.octave.set(current - 1)
             self.update_octave_display()
+
+    def update_playing_frequencies(self):
+        keyboard = self.winfo_toplevel().keyboard
+        if keyboard.notes_played:
+            keyboard.notes_played.clear()
 
     def update_octave_display(self):
         value = self.octave.get()
