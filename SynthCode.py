@@ -1,8 +1,3 @@
-
-#Add noise Generator
-
-#Submit to GitHub!
-
 import tkinter as tk
 import ttkbootstrap as ttk
 from PIL import Image, ImageTk
