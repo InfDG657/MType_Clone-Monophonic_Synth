@@ -9,7 +9,6 @@ from PIL import Image, ImageTk
 import numpy as np
 import sounddevice as sd
 
-
 class VolOctFrame(ttk.Frame):
     def __init__(self, parent):
         super().__init__(parent)
