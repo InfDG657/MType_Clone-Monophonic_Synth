@@ -43,3 +43,7 @@ nul
 # Project specific
 *.wav
 *.mp3
+
+# Claude AI instructions
+Claude/
+CLAUDE.md
